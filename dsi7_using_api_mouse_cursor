@@ -1,0 +1,127 @@
+import mouse  # For controlling the mouse cursor
+from DSI7_API import Headset, SampleCallback, DSIException
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC
+
+# Constants for EEG data processing
+WINDOW_SIZE = 10  # Size of the window for processing EEG data
+STEP_SIZE = 5     # Step size for sliding window
+NUM_CHANNELS = 8  # Number of EEG channels
+
+# Constants for classifier training
+NUM_SAMPLES = 100  # Number of training samples
+NUM_FEATURES = NUM_CHANNELS  # Number of features (same as number of channels)
+
+# Global variables for storing EEG data and classifier
+eeg_data = []
+classifier = None
+
+# Callback function to handle EEG data samples
+@SampleCallback
+def handle_sample(headset_ptr, packet_time, user_data):
+    global eeg_data
+
+    # Acquire EEG data sample from the headset
+    eeg_sample = acquire_eeg_sample(headset_ptr)
+
+    # Append EEG sample to data buffer
+    eeg_data.append(eeg_sample)
+
+    # Check if enough data samples are collected for processing
+    if len(eeg_data) >= WINDOW_SIZE:
+        # Process EEG data to detect motor imagery patterns
+        motor_imagery_detected = detect_motor_imagery()
+
+        # Control mouse cursor based on motor imagery detection
+        if motor_imagery_detected:
+            move_mouse_cursor()
+
+        # Clear the data buffer
+        eeg_data.pop(0)  # Remove the oldest sample
+
+# Function to acquire EEG data sample
+def acquire_eeg_sample(headset_ptr):
+    try:
+        headset = Headset(headset_ptr)
+        headset.connect()  # Connect to the DSI 7 EEG device
+
+        # Start receiving EEG data samples
+        headset.receive()  
+
+        # Get EEG sample from the headset
+        eeg_sample = headset.get_eeg_sample()  # Assuming the DSI 7 API provides a method to get EEG samples
+
+        return eeg_sample
+
+    except DSIException as e:
+        print("DSI Exception:", e)
+    finally:
+        # Disconnect from the DSI 7 EEG device
+        headset.disconnect()
+
+# Function to detect motor imagery patterns in EEG data
+def detect_motor_imagery():
+    global classifier
+
+    # Extract features from EEG data
+    features = extract_features()
+
+    # Preprocess features (e.g., normalization)
+    features_normalized = preprocess_features(features)
+
+    # Classify features using the trained classifier
+    prediction = classifier.predict(features_normalized.reshape(1, -1))
+
+    # Return True if motor imagery is detected, False otherwise
+    return prediction == 1
+
+# Function to extract features from EEG data
+def extract_features():
+    global eeg_data
+
+    # Placeholder code to extract features from EEG data
+    # Replace this with actual feature extraction code
+    return np.mean(eeg_data, axis=0)  # Use mean as a simple feature
+
+# Function to preprocess features (e.g., normalization)
+def preprocess_features(features):
+    # Normalize features using standard scaler
+    scaler = StandardScaler()
+    features_normalized = scaler.fit_transform(features.reshape(1, -1))
+    return features_normalized
+
+# Function to train the classifier
+def train_classifier():
+    global classifier
+
+    # Placeholder code to prepare training data
+    # Replace this with actual code to prepare training data
+    X_train = np.random.rand(NUM_SAMPLES, NUM_FEATURES)  # Generate random training data
+    y_train = np.random.randint(0, 2, NUM_SAMPLES)  # Generate random training labels (binary)
+
+    # Train a Support Vector Classifier
+    classifier = SVC(kernel='linear')
+    classifier.fit(X_train, y_train)
+
+# Function to move the mouse cursor
+def move_mouse_cursor():
+    # Placeholder code for moving the mouse cursor
+    # You'll need to implement the logic for controlling the mouse cursor based on motor imagery
+    mouse.move(10, 10, absolute=False)  # Placeholder: Move mouse cursor by (10, 10) pixels
+
+# Main function
+def main():
+    global classifier
+
+    # Train the classifier
+    train_classifier()
+
+    # Initialize DSI7 headset and start processing EEG data
+    headset = Headset()
+    headset.connect()
+    headset.set_sample_callback(handle_sample, None)
+    headset.receive()
+
+if __name__ == "__main__":
+    main()
